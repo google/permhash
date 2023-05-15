@@ -1,4 +1,4 @@
-![permhash](https://github.com/google/permhash/blob/59d2c35765cf3b97ce310a3708e1cc8aa839a5a5/docs/images/permhash.jpg)
+<img src="[https://your-image-url.type](https://github.com/google/permhash/blob/59d2c35765cf3b97ce310a3708e1cc8aa839a5a5/docs/images/permhash.jpg)" width="50%" height="50%">
 
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/permhash)](https://pypi.org/project/permhash)
 [![Last release](https://img.shields.io/github/v/release/google/permhash)](https://github.com/google/permhash/releases)
