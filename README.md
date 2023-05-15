@@ -90,7 +90,7 @@ permhash --type apk_manifest --path '[PATH TO APK Manifest Files]'
 
 # Further Information
 ## Permhash
-[Permhash Blog](https://www.mandiant.com/resources/blog/)
+Review the [Mandiant Permhash Blog](https://www.mandiant.com/resources/blog/permhash-no-curls-necessary) for more details.
 
 ## Discussion
 The [Permhash Google Group](https://groups.google.com/g/permhash) can be used to facilitate discussion.
