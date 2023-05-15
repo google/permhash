@@ -1,4 +1,4 @@
-<img src="https://github.com/google/permhash/blob/59d2c35765cf3b97ce310a3708e1cc8aa839a5a5/docs/images/permhash.jpg" align="center" width="20%" height="20%">
+<img src="https://github.com/google/permhash/blob/59d2c35765cf3b97ce310a3708e1cc8aa839a5a5/docs/images/permhash.jpg" align="center" width="40%" height="40%">
 
 [![PyPi Version](https://img.shields.io/pypi/v/permhash)](https://pypi.org/project/permhash/)
 
