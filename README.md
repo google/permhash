@@ -1,7 +1,6 @@
 <img src="https://github.com/google/permhash/blob/59d2c35765cf3b97ce310a3708e1cc8aa839a5a5/docs/images/permhash.jpg" align="center" width="20%" height="20%">
 
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/permhash)](https://pypi.org/project/permhash)
-[![Last release](https://img.shields.io/github/v/release/google/permhash)](https://github.com/google/permhash/releases)
 [![Downloads](https://img.shields.io/github/downloads/google/permhash/total)](https://github.com/google/permhash/releases)
 [![License](https://img.shields.io/badge/license-Apache--2.0-green.svg)](LICENSE.txt)
 
