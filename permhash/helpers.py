@@ -175,7 +175,7 @@ def create_crx_permlist(path):
             return False
         except UnicodeDecodeError:
             logging.warning(
-                "This Manifest has unrecgonizable and abnormal unicode issues: %s.",
+                "This Manifest has unrecognizable and abnormal unicode issues: %s.",
                 path,
             )
             return False
