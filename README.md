@@ -1,5 +1,7 @@
 <img src="https://github.com/google/permhash/blob/59d2c35765cf3b97ce310a3708e1cc8aa839a5a5/docs/images/permhash.jpg" align="center" width="20%" height="20%">
 
+[![PyPi Version](https://img.shields.io/pypi/v/permhash)](https://pypi.org/project/permhash/)
+
 Permhash is an extensible framework to hash the declared permissions applied to Chromium-based browser extensions and APKs allowing for clustering, hunting, and pivoting similar to import hashing and rich header hashing.
 
 Permhash is currently capable of running on four types of files, but is extensible beyond this:
