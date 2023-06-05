@@ -29,31 +29,19 @@ Legitimate samples:
     com.google.android.keep.apk
     lpcaedmchfhocbbapmcbpinfpgnhiddi.crx
     manifest.json
+    
+NOTE: Due to github policy, we are unable to keep the following samples in the repository:
+20992728e56336d1620fabfb86f5f75e.crx
+b1af73d36a3711cf65911dd7decc32d4.crx
+lpcaedmchfhocbbapmcbpinfpgnhiddi.crx
 
 """
-
 
 import os
 from permhash import functions
 
 
 CWD = os.getcwd()
-
-
-def test_permhash_crx():
-    """
-    Tests the permhash calculation of a CRX file.
-    The desired result should be e1d9f99354d29badeb319a515321668d
-    e1d9f99354d29badeb319a515321668d is the hash of
-    "activeTabidentityidentity.emailcontextMenusstoragetabsunlimitedStoragescripting"
-    """
-    assert (
-        functions.permhash_crx(
-            CWD + "/tests/test_files/lpcaedmchfhocbbapmcbpinfpgnhiddi.crx"
-        )
-        == "def81bd23e3754f4b9708c89e975f0e6af7d3d84e03e089226fda7e263f8fb53"
-    )
-
 
 def test_permhash_crx_manifest():
     """
@@ -103,11 +91,12 @@ def test_permhash_no_permissions():
     )
 
 
+
+# Due to the inability to keep these samples in github, these test
+# functions are being moved into comments.
+
+"""
 def test_permhash_no_manifest():
-    """
-    Tests the permhash calculation of a sample with no manifest.
-    The desired result should be False
-    """
     assert (
         functions.permhash_crx(
             CWD + "/tests/test_files/b1af73d36a3711cf65911dd7decc32d4.crx"
@@ -117,13 +106,18 @@ def test_permhash_no_manifest():
 
 
 def test_permhash_unreadable():
-    """
-    Tests the permhash calculation of a sample that is unable to be read.
-    The desired result should be False
-    """
     assert (
         functions.permhash_crx(
             CWD + "/tests/test_files/20992728e56336d1620fabfb86f5f75e.crx"
         )
         is False
     )
+    
+def test_permhash_crx():
+    assert (
+        functions.permhash_crx(
+            CWD + "/tests/test_files/lpcaedmchfhocbbapmcbpinfpgnhiddi.crx"
+        )
+        == "def81bd23e3754f4b9708c89e975f0e6af7d3d84e03e089226fda7e263f8fb53"
+    )
+"""
