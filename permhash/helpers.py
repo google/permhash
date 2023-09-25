@@ -24,8 +24,13 @@ from xml.dom import minidom
 from androguard.core.bytecodes import axml
 from bs4 import BeautifulSoup
 import magic
+import jstyleson
 
-APK_MIMETYPES = ["application/zip", "application/java-archive"]
+APK_MIMETYPES = [
+    "application/zip",
+    "application/java-archive",
+    "application/vnd.android.package-archive",
+]
 CRX_MANIFEST_MIMETYPES = ["text/plain", "application/json"]
 CRX_MIMETYPES = ["application/x-chrome-extension", "application/zip"]
 APK_MANIFEST_MIMETYPES = ["application/octet-stream"]
@@ -76,60 +81,73 @@ def check_type(path, mime):
     :type mime: list
     """
     if is_file(path):
-        return bool(magic.from_file(path, mime=True) in mime)
+        try:
+            result = bool(magic.from_file(path, mime=True) in mime)
+            return result
+        except IsADirectoryError:
+            logging.warning("This is a directory and not a file: %s", path)
+            return False
     return False
 
 
-def parse_crx_manifest(manifest_json):
+def parse_crx_manifest(manifest_json, path):
     """
     Returns the permissions from a CRX manifest json dict
 
     :param manifest_json: the JSON manifest file text
     :type path: dict
     """
-    if "permissions" in manifest_json:
-        newpermlist = []
-        currentpermlist = manifest_json["permissions"]
-        if all(isinstance(item, str) for item in currentpermlist):
-            # The permission list is all strings, we can just join that together.
-            # No need to handle dicts.
-            return currentpermlist
-        for element in currentpermlist:
-            if isinstance(element, str):
-                # Take action to add string to the list
-                newpermlist.append(element)
-            elif isinstance(element, dict):
-                # Logic to handle dictionary values
-                values = list(element.values())[0]
-                newpermkeys = ""
-                newpermvalues = ""
-                if all(isinstance(item, str) for item in values):
-                    # The sub-dictionary has all string values
-                    newpermkeys = list(element.keys())
-                    newpermvalues = list(element.values())[0]
-                    for subvalue in newpermvalues:
-                        newpermlist.append(str(newpermkeys[0] + "." + str(subvalue)))
-                else:
-                    # There is a dictionary within the dictonary
-                    # Example:
-                    # {'usbDevices': [
-                    #                   {'vendorId': 1155, 'productId': 57105},
-                    #                   {'vendorId': 10473, 'productId': 393}
-                    #               ]
-                    # }
-                    newpermkeys = list(element.keys())[0]
-                    newpermvalues = list(element.values())[0]
-                    for perm in newpermvalues:
-                        embeddedpermkeys = list(perm.keys())[0]
-                        embeddedpermvalues = list(perm.values())[0]
-                        newpermlist.append(
-                            newpermkeys
-                            + "."
-                            + str(embeddedpermkeys)
-                            + "."
-                            + str(embeddedpermvalues)
-                        )
-        return newpermlist
+    if manifest_json:
+        if "permissions" in manifest_json:
+            newpermlist = []
+            currentpermlist = manifest_json["permissions"]
+            if all(isinstance(item, str) for item in currentpermlist):
+                # The permission list is all strings, we can just join that together.
+                # No need to handle dicts.
+                return currentpermlist
+            for element in currentpermlist:
+                if isinstance(element, str):
+                    # Take action to add string to the list
+                    newpermlist.append(element)
+                elif isinstance(element, dict):
+                    # Logic to handle dictionary values
+                    values = list(element.values())[0]
+                    newpermkeys = ""
+                    newpermvalues = ""
+                    if all(isinstance(item, str) for item in values):
+                        # The sub-dictionary has all string values
+                        newpermkeys = list(element.keys())
+                        newpermvalues = list(element.values())[0]
+                        for subvalue in newpermvalues:
+                            newpermlist.append(
+                                str(newpermkeys[0] + "." + str(subvalue))
+                            )
+                    else:
+                        # There is a dictionary within the dictonary
+                        # Example:
+                        # {'usbDevices': [
+                        #                   {'vendorId': 1155, 'productId': 57105},
+                        #                   {'vendorId': 10473, 'productId': 393}
+                        #               ]
+                        # }
+                        newpermkeys = list(element.keys())[0]
+                        newpermvalues = list(element.values())[0]
+                        for perm in newpermvalues:
+                            embeddedpermkeys = list(perm.keys())[0]
+                            embeddedpermvalues = list(perm.values())[0]
+                            newpermlist.append(
+                                newpermkeys
+                                + "."
+                                + str(embeddedpermkeys)
+                                + "."
+                                + str(embeddedpermvalues)
+                            )
+            return newpermlist
+        else:
+            logging.info(
+                "There are no standard permissions in this Manifest: %s.", path
+            )
+            return False
     return False
 
 
@@ -164,7 +182,16 @@ def create_crx_permlist(path):
                 for entry in crx_archive.namelist():
                     if (entry.endswith("/manifest.json")) or (entry == "manifest.json"):
                         manifest_present = True
-                        manifest_text = crx_archive.read(entry).decode(encoding="utf-8")
+                        try:
+                            manifest_text = crx_archive.read(entry).decode(
+                                encoding="utf-8"
+                            )
+                        except RuntimeError:
+                            logging.warning(
+                                "This CRX manifest is password protected and cannot be opened: %s.",
+                                path,
+                            )
+                            return False
                 if not manifest_present:
                     logging.warning("This CRX file has no Manifest: %s.", path)
                     return False
@@ -179,17 +206,26 @@ def create_crx_permlist(path):
                 path,
             )
             return False
-        try:
-            manifest_json = json.loads(manifest_text)
-        except JSONDecodeError:
+        if "//" in manifest_text or "/*" in manifest_text:
+            manifest_json = strip_comments(manifest_text, path)
+        else:
             try:
-                manifest_json = json.loads(manifest_text.encode().decode("utf-8-sig"))
-            except JSONDecodeError:
-                logging.warning(
-                    "This Manifest file is abnormal and unable to be read: %s.", path
-                )
+                manifest_json = json.loads(manifest_text)
+            except OSError:
+                logging.warning("This manifest is unable to be read: %s.", path)
                 return False
-        perm_list = parse_crx_manifest(manifest_json)
+            except JSONDecodeError:
+                try:
+                    manifest_json = json.loads(
+                        manifest_text.encode().decode("utf-8-sig")
+                    )
+                except JSONDecodeError:
+                    logging.warning(
+                        "This manifest file is abnormal and unable to be read: %s.",
+                        path,
+                    )
+                    return False
+        perm_list = parse_crx_manifest(manifest_json, path)
         return perm_list
     return False
 
@@ -205,11 +241,40 @@ def create_crx_manifest_permlist(path):
     if check_type(path, CRX_MANIFEST_MIMETYPES):
         with open(path, encoding="utf-8") as manifest:
             try:
-                manifest_json = json.load(manifest)
+                manifest_text = manifest.read()
             except OSError:
-                logging.warning("Failure to load JSON from the manifest at %s", path)
+                logging.warning("This manifest is unable to be read: %s.", path)
                 return False
-            perm_list = parse_crx_manifest(manifest_json)
+            except UnicodeDecodeError:
+                try:
+                    manifest_data = open(path, encoding="ISO-8859-1")
+                    manifest_text = manifest_data.read()
+                except JSONDecodeError:
+                    logging.warning(
+                        "This manifest file is abnormal and unable to be read: %s.",
+                        path,
+                    )
+                    return False
+                except OSError:
+                    logging.warning("This manifest is unable to be read: %s.", path)
+                    return False
+            if (
+                "//" in manifest_text or "/*" in manifest_text
+            ):  # Enter to strip comments if there is suspected comments in the text.
+                manifest_json = strip_comments(manifest_text, path)
+            else:
+                try:
+                    manifest_json = json.loads(manifest_text)
+                except OSError:
+                    logging.warning("This manifest is unable to be read: %s.", path)
+                    return False
+                except JSONDecodeError:
+                    logging.warning(
+                        "This manifest file is abnormal and unable to be read: %s.",
+                        path,
+                    )
+                    return False
+            perm_list = parse_crx_manifest(manifest_json, path)
             return perm_list
     return False
 
@@ -314,3 +379,31 @@ def create_apk_permlist(path):
                     perm_list.append(single_permission[key])
         return perm_list
     return False
+
+
+def strip_comments(manifest_text, path):
+    """
+    Strips the manifest of comments so the json can be loaded and manipulated.
+
+    :param manifest_text: A read manifest file from input
+    :type manifest_text: read object
+    :param path: A path to the manifest
+    :type path: string
+    """
+    try:
+        stripped_manifest = jstyleson.loads(manifest_text)
+        return stripped_manifest
+    except OSError:
+        logging.warning("This manifest is unable to be read: %s.", path)
+        return False
+    except JSONDecodeError:
+        try:
+            stripped_manifest = jstyleson.loads(
+                manifest_text.encode().decode("utf-8-sig")
+            )
+            return stripped_manifest
+        except JSONDecodeError:
+            logging.warning(
+                "This manifest file is abnormal and unable to be read: %s.", path
+            )
+            return False
