@@ -17,14 +17,15 @@ limitations under the License.
 import hashlib
 import os
 import json
-from json import JSONDecodeError
 import logging
 from zipfile import ZipFile, BadZipfile
 from xml.dom import minidom
+import codecs
 from androguard.core.bytecodes import axml
 from bs4 import BeautifulSoup
 import magic
 import jstyleson
+
 
 APK_MIMETYPES = [
     "application/zip",
@@ -64,7 +65,7 @@ def is_file(path):
     if os.path.exists(path):
         return bool(os.stat(path).st_size != 0)
     logging.warning(
-        "This does not exist: (%s)",
+        "This file does not exist: (%s)",
         path,
     )
     return False
@@ -90,12 +91,11 @@ def check_type(path, mime):
     return False
 
 
-def parse_crx_manifest(manifest_json, path):
+def parse_crx_manifest(manifest_json):
     """
     Returns the permissions from a CRX manifest json dict
 
-    :param manifest_json: the JSON manifest file text
-    :type path: dict
+    :param manifest_json: the processed JSON manifest file text
     """
     if manifest_json:
         if "permissions" in manifest_json:
@@ -144,9 +144,7 @@ def parse_crx_manifest(manifest_json, path):
                             )
             return newpermlist
         else:
-            logging.info(
-                "There are no standard permissions in this Manifest: %s.", path
-            )
+            logging.warning("There are no base permissions in this manifest.")
             return False
     return False
 
@@ -157,6 +155,8 @@ def calc_permhash(perm_list, path):
 
     :param perm_list: The list of string permissions
     :type perm_list: list
+    :param path: The path to the file where the permissions need to be retrieved
+    :type path: string
     """
     if perm_list is not False:
         if len(perm_list) == 0:
@@ -172,7 +172,7 @@ def create_crx_permlist(path):
     Creates and returns the list of permissions that will be used to create the permhash.
 
     :param path: The path to the file where the permissions need to be retrieved
-    :type perm_list: string
+    :type path: string
     """
     # Ensure the file exists, is non-zero in size, and is a mimetype that a CRX should be
     if check_type(path, CRX_MIMETYPES):
@@ -183,17 +183,18 @@ def create_crx_permlist(path):
                     if (entry.endswith("/manifest.json")) or (entry == "manifest.json"):
                         manifest_present = True
                         try:
-                            manifest_text = crx_archive.read(entry).decode(
-                                encoding="utf-8"
-                            )
+                            manifest_bytes = crx_archive.read(entry)
                         except RuntimeError:
                             logging.warning(
                                 "This CRX manifest is password protected and cannot be opened: %s.",
                                 path,
                             )
                             return False
+                        processed_json = process_manifest_bytes(manifest_bytes)
+                        if not processed_json:
+                            logging.warning("Path: %s", path)
                 if not manifest_present:
-                    logging.warning("This CRX file has no Manifest: %s.", path)
+                    logging.warning("This CRX file has no manifest: %s.", path)
                     return False
         except (BadZipfile, OSError):
             logging.warning(
@@ -202,30 +203,13 @@ def create_crx_permlist(path):
             return False
         except UnicodeDecodeError:
             logging.warning(
-                "This Manifest has unrecgonizable and abnormal unicode issues: %s.",
+                "This manifest has unrecognizable and abnormal unicode issues: %s.",
                 path,
             )
             return False
-        if "//" in manifest_text or "/*" in manifest_text:
-            manifest_json = strip_comments(manifest_text, path)
-        else:
-            try:
-                manifest_json = json.loads(manifest_text)
-            except OSError:
-                logging.warning("This manifest is unable to be read: %s.", path)
-                return False
-            except JSONDecodeError:
-                try:
-                    manifest_json = json.loads(
-                        manifest_text.encode().decode("utf-8-sig")
-                    )
-                except JSONDecodeError:
-                    logging.warning(
-                        "This manifest file is abnormal and unable to be read: %s.",
-                        path,
-                    )
-                    return False
-        perm_list = parse_crx_manifest(manifest_json, path)
+        perm_list = parse_crx_manifest(processed_json)
+        if not perm_list:
+            logging.warning("Path: %s", path)
         return perm_list
     return False
 
@@ -235,47 +219,29 @@ def create_crx_manifest_permlist(path):
     Creates and returns the list of permissions that will be used to create the permhash.
 
     :param path: The path to the file where the permissions need to be retrieved
-    :type perm_list: string
+    :type path: string
     """
     # Ensure the file exists, is non-zero in size, and is a mimetype that a CRX should be
     if check_type(path, CRX_MANIFEST_MIMETYPES):
-        with open(path, encoding="utf-8") as manifest:
-            try:
-                manifest_text = manifest.read()
-            except OSError:
-                logging.warning("This manifest is unable to be read: %s.", path)
-                return False
-            except UnicodeDecodeError:
+        with open(path, "rb") as manifest_byte_stream:
+            if manifest_byte_stream.readable():
                 try:
-                    manifest_data = open(path, encoding="ISO-8859-1")
-                    manifest_text = manifest_data.read()
-                except JSONDecodeError:
-                    logging.warning(
-                        "This manifest file is abnormal and unable to be read: %s.",
-                        path,
-                    )
+                    manifest_byte_read = manifest_byte_stream.read()
+                except IOError as error:
+                    # This file was unable to be read
+                    logging.warning("This manifest is unable to be read.")
+                    logging.warning(str(error))
                     return False
-                except OSError:
-                    logging.warning("This manifest is unable to be read: %s.", path)
-                    return False
-            if (
-                "//" in manifest_text or "/*" in manifest_text
-            ):  # Enter to strip comments if there is suspected comments in the text.
-                manifest_json = strip_comments(manifest_text, path)
-            else:
-                try:
-                    manifest_json = json.loads(manifest_text)
-                except OSError:
-                    logging.warning("This manifest is unable to be read: %s.", path)
-                    return False
-                except JSONDecodeError:
-                    logging.warning(
-                        "This manifest file is abnormal and unable to be read: %s.",
-                        path,
-                    )
-                    return False
-            perm_list = parse_crx_manifest(manifest_json, path)
-            return perm_list
+                processed_json = process_manifest_bytes(manifest_byte_read)
+                if not processed_json:
+                    logging.warning("Path: %s", path)
+                perm_list = parse_crx_manifest(processed_json)
+                if not perm_list:
+                    logging.warning("Path: %s", path)
+                return perm_list
+            logging.warning("The manifest file is unable to be read.")
+            logging.warning("Path: %s", path)
+            return False
     return False
 
 
@@ -284,45 +250,50 @@ def create_apk_manifest_permlist(path):
     Creates and returns the list of permissions that will be used to create the permhash.
 
     :param path: The path to the file where the permissions need to be retrieved
-    :type perm_list: string
+    :type path: string
     """
     with open(path, "rb") as manifest:
-        try:
-            manifest_data = axml.AXMLPrinter(manifest.read())
-        except OSError:
-            logging.warning("Failure to parse XML from the manifest at %s", path)
-            return False
-        if not manifest_data.is_valid():
-            logging.warning(
-                "This manifest does not appear to be an AXML file: %s.", path
-            )
-            return False
-        try:
-            initial_buff = manifest_data.get_buff()
-        except OSError:
-            logging.warning(
-                "Failure to fetch the XML buffer from the manifest at %s.", path
-            )
-            return False
-        try:
-            manifest_text = minidom.parseString(initial_buff).toxml()
-        except OSError:
-            logging.warning("Failure to decode the XML from the manifest at %s", path)
-            return False
-        try:
-            xmldata = BeautifulSoup(manifest_text, "xml")
-        except OSError:
-            logging.warning("Failure to parse XML from the manifest at %s", path)
-            return False
-        all_perms = xmldata.find_all("uses-permission")
-        perm_list = []
-        if all_perms:
-            for single_permission in all_perms:
-                keys = single_permission.attrs.keys()
-                if keys and len(list(keys)) > 0:
-                    key = list(keys)[0]
-                    perm_list.append(single_permission[key])
-        return perm_list
+        if manifest.readable():
+            try:
+                manifest_data = axml.AXMLPrinter(manifest.read())
+            except OSError:
+                logging.warning("Failure to parse XML from the manifest at %s", path)
+                return False
+            if not manifest_data.is_valid():
+                logging.warning(
+                    "This manifest does not appear to be an AXML file: %s.", path
+                )
+                return False
+            try:
+                initial_buff = manifest_data.get_buff()
+            except OSError:
+                logging.warning(
+                    "Failure to fetch the XML buffer from the manifest at %s.", path
+                )
+                return False
+            try:
+                manifest_text = minidom.parseString(initial_buff).toxml()
+            except OSError:
+                logging.warning(
+                    "Failure to decode the XML from the manifest at %s", path
+                )
+                return False
+            try:
+                xmldata = BeautifulSoup(manifest_text, "xml")
+            except OSError:
+                logging.warning("Failure to parse XML from the manifest at %s", path)
+                return False
+            all_perms = xmldata.find_all("uses-permission")
+            perm_list = []
+            if all_perms:
+                for single_permission in all_perms:
+                    keys = single_permission.attrs.keys()
+                    if keys and len(list(keys)) > 0:
+                        key = list(keys)[0]
+                        perm_list.append(single_permission[key])
+            return perm_list
+        logging.warning("This APK is not readable.")
+        return False
 
 
 def create_apk_permlist(path):
@@ -330,7 +301,7 @@ def create_apk_permlist(path):
     Creates and returns the list of permissions that will be used to create the permhash.
 
     :param path: The path to the file where the permissions need to be retrieved
-    :type perm_list: string
+    :type path: string
     """
     # Ensure the file exists, is non-zero in size, and is a mimetype that a CRX should be
     if check_type(path, APK_MIMETYPES):
@@ -345,7 +316,8 @@ def create_apk_permlist(path):
                     return False
         except (BadZipfile, OSError):
             logging.warning(
-                "This APK file is corrupt and unable to be unzipped: %s.", path
+                "This APK file is likely corrupt or inaccessable and unable to be unzipped: %s.",
+                path,
             )
             return False
         try:
@@ -381,29 +353,54 @@ def create_apk_permlist(path):
     return False
 
 
-def strip_comments(manifest_text, path):
+def strip_comments(manifest_text):
     """
     Strips the manifest of comments so the json can be loaded and manipulated.
 
-    :param manifest_text: A read manifest file from input
-    :type manifest_text: read object
-    :param path: A path to the manifest
-    :type path: string
+    :param manifest_text: A read manifest text file from input
+    :type manifest_text: string
     """
     try:
         stripped_manifest = jstyleson.loads(manifest_text)
         return stripped_manifest
-    except OSError:
-        logging.warning("This manifest is unable to be read: %s.", path)
-        return False
-    except JSONDecodeError:
+    except json.decoder.JSONDecodeError as error:
         try:
             stripped_manifest = jstyleson.loads(
                 manifest_text.encode().decode("utf-8-sig")
             )
             return stripped_manifest
-        except JSONDecodeError:
-            logging.warning(
-                "This manifest file is abnormal and unable to be read: %s.", path
-            )
+        except json.decoder.JSONDecodeError:
+            logging.warning("This manifest file is abnormal and unable to be read")
+            logging.warning(str(error))
             return False
+
+
+def process_manifest_bytes(manifest_byte_read):
+    """
+    Processes CRX manifest bytes to remove or convert abnormal encodings/characters.
+
+    :param manifest_byte_read: A read manifest file from input
+    :type manifest_text: read bytes
+    """
+    try:
+        manifest_json = json.loads(manifest_byte_read)
+        return manifest_json
+    except UnicodeDecodeError as error:
+        # UTF error loading the json
+        try:
+            decoded_json = codecs.decode(manifest_byte_read, "iso-8859-1")
+            manifest_json = json.loads(decoded_json)
+            return manifest_json
+        except UnicodeDecodeError:
+            logging.warning("There was an error decoding/loading the json.")
+            logging.warning(str(error))
+            return False
+    except json.decoder.JSONDecodeError as error:
+        # Improperly formatted JSON
+        try:
+            stripped_json = strip_comments(manifest_byte_read.decode())
+            return stripped_json
+        except json.decoder.JSONDecodeError:
+            logging.warning("The manifest file is improperly formatted.")
+            logging.warning(str(error))
+        return False
