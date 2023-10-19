@@ -71,6 +71,33 @@ def is_file(path):
     return False
 
 
+def is_dir(path):
+    """
+    Checks to see if the given path is a directory and if it contains files.
+
+    :param path: The path to check.
+    :type path: string
+    """
+    path = os.path.abspath(path)
+    if os.path.isdir(path):
+        files = os.listdir(path)
+        if files:
+            full_path_files = []
+            for file in files:
+                full_path_files.append(path + "/" + file)
+            return files
+        logging.warning(
+            "This directory contains no files: (%s)",
+            path,
+        )
+        return False
+    logging.info(
+        "This is not a directory: (%s)",
+        path,
+    )
+    return False
+
+
 def check_type(path, mime):
     """
     Checks to see if mime type of the file at the provided
@@ -192,7 +219,7 @@ def create_crx_permlist(path):
                             return False
                         processed_json = process_manifest_bytes(manifest_bytes)
                         if not processed_json:
-                            logging.warning("Path: %s", path)
+                            logging.warning("Path1: %s", path)
                 if not manifest_present:
                     logging.warning("This CRX file has no manifest: %s.", path)
                     return False
@@ -209,7 +236,7 @@ def create_crx_permlist(path):
             return False
         perm_list = parse_crx_manifest(processed_json)
         if not perm_list:
-            logging.warning("Path: %s", path)
+            logging.warning("Path2: %s", path)
         return perm_list
     return False
 
@@ -234,13 +261,13 @@ def create_crx_manifest_permlist(path):
                     return False
                 processed_json = process_manifest_bytes(manifest_byte_read)
                 if not processed_json:
-                    logging.warning("Path: %s", path)
+                    logging.warning("Path3: %s", path)
                 perm_list = parse_crx_manifest(processed_json)
-                if not perm_list:
-                    logging.warning("Path: %s", path)
+                if (not perm_list) and processed_json:
+                    logging.warning("Path4: %s", path)
                 return perm_list
             logging.warning("The manifest file is unable to be read.")
-            logging.warning("Path: %s", path)
+            logging.warning("Path5: %s", path)
             return False
     return False
 

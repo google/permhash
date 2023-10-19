@@ -47,7 +47,7 @@ def permhash_crx(path):
         return calc_permhash(create_crx_permlist(path), path)
     logging.warning(
         "This file is not a type that is currently handled \
-(CRX, APK, CRX Manifest, or APK Manifest): (%s)",
+            (CRX, APK, CRX Manifest, or APK Manifest): (%s)",
         path,
     )
     return False

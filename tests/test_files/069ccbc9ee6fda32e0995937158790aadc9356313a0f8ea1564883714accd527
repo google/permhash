@@ -1,0 +1,15 @@
+{
+  "name": "Relaxed Lok Lok Facebook Chat Code",
+  "version": "1.4",
+  "description": "Relaxed Lok Lok Facebook Chat Code",
+  "manifest_version": 2,
+  "content_security_policy": "script-src 'self' https://ssl.google-analytics.com; object-src 'self'",
+  "browser_action": {
+    "default_icon": "icon.png",
+	"default_title": "Relaxed Lok Lok Facebook Chat Code",
+    "default_popup": "frame.html"
+  },
+
+  "permissions": [
+  ]
+}
