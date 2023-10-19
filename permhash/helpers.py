@@ -219,7 +219,7 @@ def create_crx_permlist(path):
                             return False
                         processed_json = process_manifest_bytes(manifest_bytes)
                         if not processed_json:
-                            logging.warning("Path1: %s", path)
+                            logging.warning("Path: %s", path)
                 if not manifest_present:
                     logging.warning("This CRX file has no manifest: %s.", path)
                     return False
@@ -236,7 +236,7 @@ def create_crx_permlist(path):
             return False
         perm_list = parse_crx_manifest(processed_json)
         if not perm_list:
-            logging.warning("Path2: %s", path)
+            logging.warning("Path: %s", path)
         return perm_list
     return False
 
@@ -261,13 +261,13 @@ def create_crx_manifest_permlist(path):
                     return False
                 processed_json = process_manifest_bytes(manifest_byte_read)
                 if not processed_json:
-                    logging.warning("Path3: %s", path)
+                    logging.warning("Path: %s", path)
                 perm_list = parse_crx_manifest(processed_json)
                 if (not perm_list) and processed_json:
-                    logging.warning("Path4: %s", path)
+                    logging.warning("Path: %s", path)
                 return perm_list
             logging.warning("The manifest file is unable to be read.")
-            logging.warning("Path5: %s", path)
+            logging.warning("Path: %s", path)
             return False
     return False
 
