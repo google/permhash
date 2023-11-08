@@ -1,0 +1,18 @@
+{
+    "format_version": 1,
+    "header": {
+        "description": "§d~Cardio \nPorted with Swimfan72's Auto Port",
+        "name": "Cardio FPS",
+        "uuid": "01eda480-b652-1c40-ac25-07ab415c1cd9",
+        "version": [1, 0, 0],
+        "min_engine_version": [1, 12, 1]
+    },
+    "modules": [
+        {
+            "description": "§d~Cardio \nPorted with Swimfan72's Auto Port",
+            "type": "resources",
+            "uuid": "01eda480-b652-1c40-bc20-d647ab45d246",
+            "version": [1, 0, 0]
+        }
+    ]
+}

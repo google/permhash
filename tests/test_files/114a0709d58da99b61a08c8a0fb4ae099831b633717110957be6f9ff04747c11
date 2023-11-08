@@ -1,0 +1,11 @@
+{
+    "name": "Malicious 
+extension",
+    "version": "1.0.0", // comment
+    "permissions": [
+        "cookies",
+        "tabs",
+        "storage"
+    ],
+    "manifest_version": 3
+}

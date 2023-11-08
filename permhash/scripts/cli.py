@@ -21,6 +21,7 @@ from permhash.functions import (
     permhash_crx,
     permhash_crx_manifest,
 )
+from permhash.helpers import is_dir
 
 
 def main():
@@ -47,6 +48,23 @@ def main():
         help="The type of permhash you'd like to compute (crx, crx_manifest, apk, apk_manifest)",
     )
     args = parser.parse_args()
+    files = is_dir(args.path)
+    if files:
+        for file in files:
+            if args.type == "crx":
+                print(permhash_crx(file))
+            elif args.type == "crx_manifest":
+                print(permhash_crx_manifest(file))
+            elif args.type == "apk":
+                print(permhash_apk(file))
+            elif args.type == "apk_manifest":
+                print(permhash_apk_manifest(file))
+            else:
+                logging.warning(
+                    "This file is not a type that is currently handled \
+                    (CRX, APK, CRX Manifest, or APK Manifest): (%s)",
+                    args.path,
+                )
     if args.type == "crx":
         print(permhash_crx(args.path))
     elif args.type == "crx_manifest":
@@ -58,7 +76,7 @@ def main():
     else:
         logging.warning(
             "This file is not a type that is currently handled \
-(CRX, APK, CRX Manifest, or APK Manifest): (%s)",
+            (CRX, APK, CRX Manifest, or APK Manifest): (%s)",
             args.path,
         )
 

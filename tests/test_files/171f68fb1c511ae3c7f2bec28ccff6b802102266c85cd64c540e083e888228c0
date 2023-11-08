@@ -1,0 +1,86 @@
+{
+    "format_version": 1,
+    "header": {
+        "description": "subscribe to §bDanyPlayz \n§e§lcustom skies included!\n\n§c§lNOTE:\nYou may need to restart your game when changing subpacks!",
+        "name": "§l§f§k!§r §l§4Dany§cPlayz's §fPrivate Pack §r§l§f§k§r",
+        "uuid": "00589fcf-7dd9-4742-aa8f-9c5dc713a8c7",
+        "version": [1, 0, 0],
+        "min_engine_version": [1, 12, 1]
+    },
+    "modules": [
+        {
+            "description": "subscribe to §bDanyPlayz \n§c§lNOTE:\nYou may need to restart your game when changing subpacks!",
+            "type": "resources",
+            "uuid": "01ec39da-a57b-155a-a958-b2e6d7059ea7",
+            "version": [1, 0, 0]
+        }
+    ],
+   "subpacks": [
+{
+"folder_name": "1",
+"name": "Woodland Sky",
+"memory_tier": 1
+},
+{
+"folder_name": "2",
+"name": "Neon Blue-Red Sky",
+"memory_tier": 1
+},
+{
+"folder_name": "3",
+"name": "Pink-Blue Nebula",
+"memory_tier": 1
+},
+{
+"folder_name": "4",
+"name": "Green Galaxy Sky",
+"memory_tier": 1
+},
+{
+"folder_name": "5",
+"name": "Orange-Red Galaxy Sky",
+"memory_tier": 1
+},
+{
+"folder_name": "6",
+"name": "White-Light Blue Galaxy Sky",
+"memory_tier": 1
+},
+{
+"folder_name": "7",
+"name": "Red-Blue Graphic Lake, Sun & Mountains Sky",
+"memory_tier": 1
+},
+{
+"folder_name": "8",
+"name": "Blue/Light Blue Solar System Sky",
+"memory_tier": 1
+},
+{
+"folder_name": "9",
+"name": "Blue Cloudy Sky",
+"memory_tier": 1
+},
+{
+"folder_name": "10",
+"name": "Horizont w/Clouds & Sun Sky",
+"memory_tier": 1
+},
+{
+"folder_name": "11",
+"name": "Orange/Red Forest Sky",
+"memory_tier": 1
+},
+{
+"folder_name": "12",
+"name": "Dark Clouds Sky",
+"memory_tier": 1
+},
+{
+"folder_name": "13",
+"name": "Dark Green & Red Graphic Smoke Sky",
+"memory_tier": 1
+      }
+   ]
+}
+
