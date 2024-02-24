@@ -21,7 +21,7 @@ import logging
 from zipfile import ZipFile, BadZipfile
 from xml.dom import minidom
 import codecs
-from androguard.core.bytecodes import axml
+from androguard.core import axml
 from bs4 import BeautifulSoup
 import magic
 import jstyleson
