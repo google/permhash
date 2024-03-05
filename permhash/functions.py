@@ -22,6 +22,8 @@ from permhash.helpers import (
     create_crx_manifest_permlist,
     create_apk_manifest_permlist,
     create_apk_permlist,
+    create_ipa_permlist,
+    create_macho_permlist,
 )
 
 APK_MIMETYPES = [
@@ -32,6 +34,9 @@ APK_MIMETYPES = [
 CRX_MANIFEST_MIMETYPES = ["text/plain", "application/json"]
 CRX_MIMETYPES = ["application/x-chrome-extension", "application/zip"]
 APK_MANIFEST_MIMETYPES = ["application/octet-stream"]
+IPA_MIMETYPES = ['application/x-ios-app', 'application/zip', \
+    'application/vnd.debian.binary-package']
+MACHO_MIMETYPES = ['application/x-mach-binary']
 
 
 def permhash_crx(path):
@@ -101,6 +106,38 @@ def permhash_apk(path):
     logging.warning(
         "This file is not a type that is currently handled \
 (CRX, APK, CRX Manifest, or APK Manifest): (%s)",
+        path,
+    )
+    return False
+
+def permhash_ipa(path):
+    """
+    Returns the permhash of a file at the designated path
+
+    :param path: The targeted file
+    :type path: string
+    """
+    if check_type(path, IPA_MIMETYPES):
+        return calc_permhash(create_ipa_permlist(path), path)
+    logging.warning(
+        "This file is not a type that is currently handled \
+(CRX, APK, CRX Manifest, APK Manifest, IPA, or Mach-O): (%s)",
+        path,
+    )
+    return False
+
+def permhash_macho(path):
+    """
+    Returns the permhash of a file at the designated path
+
+    :param path: The targeted file
+    :type path: string
+    """
+    if check_type(path, MACHO_MIMETYPES):
+        return calc_permhash(create_macho_permlist(path), path)
+    logging.warning(
+        "This file is not a type that is currently handled \
+(CRX, APK, CRX Manifest, APK Manifest, IPA, or Mach-O): (%s)",
         path,
     )
     return False
