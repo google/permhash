@@ -29,7 +29,6 @@ import plistlib
 import yara
 from permhash.mimetypes import *
 
-print(os.path.abspath(os.path.dirname(__file__)))
 YARA_RULES = yara.compile(filepath=os.path.abspath(os.path.dirname(__file__))+"/detect.yar")
 
 
