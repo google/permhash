@@ -25,16 +25,11 @@ from androguard.core import axml
 from bs4 import BeautifulSoup
 import magic
 import jstyleson
+import plistlib
+import yara
+from permhash.mimetypes import *
 
-
-APK_MIMETYPES = [
-    "application/zip",
-    "application/java-archive",
-    "application/vnd.android.package-archive",
-]
-CRX_MANIFEST_MIMETYPES = ["text/plain", "application/json"]
-CRX_MIMETYPES = ["application/x-chrome-extension", "application/zip"]
-APK_MANIFEST_MIMETYPES = ["application/octet-stream"]
+YARA_RULES = yara.compile(filepath=os.path.abspath(os.path.dirname(__file__))+"/detect.yar")
 
 
 def calc_md5(path):
@@ -431,3 +426,180 @@ def process_manifest_bytes(manifest_byte_read):
             logging.warning("The manifest file is improperly formatted.")
             logging.warning(str(error))
         return False
+
+
+
+def extract_xml(bytes_dump):
+    """
+    Extracts entitlement XML from bytes and returns the extracted byte section
+    :param bytes_dump: File bytes expected to have an XML section
+    :type bytes
+    """
+    #Find the start of the XML data.
+    start_index = bytes_dump.find(b"\xfa\xde\x71\x71")
+    #Extract the XML data.
+    start_xml_data = bytes_dump[start_index:]
+    #Find the end of the XML data.
+    end_index = start_xml_data.find(b"</plist>")
+    #Extract the XML data.
+    xml_data = start_xml_data[:end_index+8]
+    #Trim off excess strings
+    start_index = xml_data.find(b"<?xml")
+    xml_data_filtered = xml_data[start_index:]
+    # Decode the XML data to a string.
+    return xml_data_filtered
+
+
+def confirm_ipa(path,file_bytes):
+    """
+    Confirm the file at path with the file bytes file_bytes is an IPA file.
+    Returns true if it is an IPA file.
+    :param path: string to the path of the file being assessed
+    :type string
+    :param file_bytes: the bytes read of the file being assessed
+    :type bytes
+    """
+    #Check if the IPA mimetypes match
+    if check_type(path, IPA_MIMETYPES):
+        #Check if it matches on the file M_Hunting_IPA_1
+        yara_matches = YARA_RULES.match(data=file_bytes)
+        if yara_matches:
+            if len(yara_matches) == 1:
+                if yara_matches[0].rule == 'M_Hunting_IPA_1':
+                    #This file has matched the yara and the mimetype.
+                    #This is highly suspected to be an IPA file
+                    return True
+    #This file failed the check and is likely not an IPA file
+    return False
+
+def confirm_macho(path, file_bytes):
+    """
+    Confirm the file at path with the file bytes file_bytes is an Macho-O file.
+    Returns true if it is an Macho-O file.
+    :param path: string to the path of the file being assessed
+    :type string
+    :param file_bytes: the bytes read of the file being assessed
+    :type bytes
+    """
+    #Check if the Mach-O mimetypes match
+    if check_type(path, MACHO_MIMETYPES):
+        #Check if it matches on the file M_Hunting_MachO_Entitlements_1
+        yara_matches = YARA_RULES.match(data=file_bytes)
+        if yara_matches:
+            if len(yara_matches) == 1:
+                if yara_matches[0].rule == 'M_Hunting_MachO_Entitlements_1':
+                    #This file has matched the yara and the mimetype.
+                    #This is highly suspected to be an Mach-O file
+                    return True
+    #This file failed the check and is likely not an Mach-O file
+    return False
+
+def parse_ipa_byte(path):
+    """
+    Extract a zipped IPA file and identify the suspected app macho within the IPA
+    :param path: string to the path of the file being assessed
+    :type string
+    """
+    try:
+        #Attempt to unzip the IPA
+        ipa_unzip = ZipFile(path, 'r')
+    except (BadZipfile, OSError):
+        logging.warning("This IPA is unable to be unzipped: %s.", path)
+        ipa_unzip = None
+    if ipa_unzip:
+        for file_path in ipa_unzip.namelist():
+            #Check to ensure the file is in the proper location (i.e. Payload/App.app/App)
+            if file_path.count('/') > 1:
+                filename = file_path.split('/')[-1]
+                pre_path = file_path.split('/')[-2]
+                if filename.lower()+'.app' == pre_path.lower():
+                    try:
+                        subfile_bytes = ipa_unzip.read(file_path)
+                    except (BadZipfile, OSError):
+                        logging.warning("The Mach-O in this IPA is unable to be read: %s.", path)
+                        subfile_bytes = None
+                    return ipa_unzip, subfile_bytes, file_path
+    return False, False, False
+
+def create_ipa_permlist(path):
+    """
+    Create the list of the entitlements by the keys within the plist and return these values
+    :param path: string to the path of the file being assessed
+    :type string
+    """
+    if is_file(path):
+        try:
+            with open(path, mode="rb") as ipa_read:
+                ipa_bytes = ipa_read.read()
+        except OSError as read_error:
+            logging.warning("The IPA at the following path was unable to be read: %s.", path)
+            logging.warning("Full Error:")
+            logging.warning(read_error)
+            ipa_bytes = None
+        if ipa_bytes:
+            if confirm_ipa(path, ipa_bytes):
+                #Parese the IPA file into the unzip obj, bytes, and path
+                ipa_unzip, ipa_subfile_bytes, file_path = parse_ipa_byte(path)
+                if ipa_subfile_bytes:
+                    #checking if the subfiles (the mach-o) matches our yara for entitlements
+                    yara_matches = YARA_RULES.match(data=ipa_subfile_bytes)
+                    if yara_matches:
+                        if len(yara_matches) == 1:
+                            if yara_matches[0].rule == 'M_Hunting_MachO_Entitlements_1':
+                                try:
+                                    read_unzip = ipa_unzip.read(file_path)
+                                except (BadZipfile, OSError):
+                                    logging.warning("The Mach-O in this IPA is unable to be read: \
+                                        %s.", path)
+                                    logging.warning("Full Error:")
+                                    logging.warning(read_error)
+                                    read_unzip = None
+                                xml_bytes = extract_xml(read_unzip)
+                                try:
+                                    #load the plist from the xml bytes
+                                    plist = plistlib.loads(xml_bytes)
+                                except plistlib.InvalidFileException as plist_error:
+                                    logging.warning("The entitlements were unable to be loaded: \
+                                        %s.", path)
+                                    logging.warning("Full Error:")
+                                    logging.warning(plist_error)
+                                    plist = None
+                                if plist:
+                                    return plist.keys()
+    return []
+
+def create_macho_permlist(path):
+    """
+    Create the list of the entitlements by the keys within the plist and return these values
+    :param path: string to the path of the file being assessed
+    :type string
+    """
+    if is_file(path):
+        try:
+            with open(path, mode="rb") as macho_read:
+                macho_bytes = macho_read.read()
+        except OSError as read_error:
+            logging.warning("The Mach-O at the following path was unable to be read: %s.", path)
+            logging.warning("Full Error:")
+            logging.warning(read_error)
+            macho_bytes = None
+            return []
+        if confirm_macho(path, macho_bytes):
+            #Ensure Mach-O matches our yara for Mach-O with Entitlements
+            yara_matches = YARA_RULES.match(data=macho_bytes)
+            if yara_matches:
+                if len(yara_matches) == 1:
+                    if yara_matches[0].rule == 'M_Hunting_MachO_Entitlements_1':
+                        xml_bytes = extract_xml(macho_bytes)
+                        try:
+                            #load the plist from the xml bytes
+                            plist = plistlib.loads(xml_bytes)
+                        except plistlib.InvalidFileException as plist_error:
+                            logging.warning("The entitlements were unable to be loaded: \
+                                %s.", path)
+                            logging.warning("Full Error:")
+                            logging.warning(plist_error)
+                            plist = None
+                        if plist:
+                            return plist.keys()
+    return []

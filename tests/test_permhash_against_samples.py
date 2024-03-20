@@ -193,6 +193,32 @@ def test_apk_nonaxml():
         is False
     )
 
+def test_ipa():
+    """
+    Tests the permhash calculation of an IPA sample
+    """
+    assert (
+        functions.permhash_ipa(
+            CWD
+            + "/tests/test_files/093df6f30e0ef06e42b40bde4fea08c27a1a623bb0b6f6b363242931ab0247e2"
+        )
+        == "27fada76cc72ce4a9b821cecfd2c93289bbf2eaac171388d3a7d0e5b4adaf63b"
+    )
+
+def test_macho():
+    """
+    Tests the permhash calculation of a mach-o sample
+    """
+    assert (
+        functions.permhash_macho(
+            CWD
+            + "/tests/test_files/e82182d7635ca7bd13ef34f92ccd4cfdc4c26cae0f3a2a2d28da5637ca0766a1"
+        )
+        == "27fada76cc72ce4a9b821cecfd2c93289bbf2eaac171388d3a7d0e5b4adaf63b"
+    )
+
+
+
 
 # Due to the inability to keep these samples in github, these test
 # functions are being moved into comments.
