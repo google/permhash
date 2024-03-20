@@ -23,21 +23,8 @@ from permhash.helpers import (
     create_apk_manifest_permlist,
     create_apk_permlist,
     create_ipa_permlist,
-    create_macho_permlist,
-)
-
-APK_MIMETYPES = [
-    "application/zip",
-    "application/java-archive",
-    "application/vnd.android.package-archive",
-]
-CRX_MANIFEST_MIMETYPES = ["text/plain", "application/json"]
-CRX_MIMETYPES = ["application/x-chrome-extension", "application/zip"]
-APK_MANIFEST_MIMETYPES = ["application/octet-stream"]
-IPA_MIMETYPES = ['application/x-ios-app', 'application/zip', \
-    'application/vnd.debian.binary-package']
-MACHO_MIMETYPES = ['application/x-mach-binary']
-
+    create_macho_permlist,)
+from permhash.mimetypes import *
 
 def permhash_crx(path):
     """

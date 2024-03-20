@@ -47,7 +47,7 @@ def main():
         type=str.lower,
         choices=["apk", "apk_manifest", "crx", "crx_manifest", "ipa", "macho"],
         action="store",
-        help="The type of permhash you'd like to compute (crx, crx_manifest, apk, apk_manifest, ipa, macho)",
+        help="The filetype of the file you'd like to compute permhash for.",
     )
     args = parser.parse_args()
     files = is_dir(args.path)
