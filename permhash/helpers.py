@@ -583,23 +583,23 @@ def create_macho_permlist(path):
             logging.warning("Full Error:")
             logging.warning(read_error)
             macho_bytes = None
-        if macho_bytes:
-            if confirm_macho(path, macho_bytes):
-                #Ensure Mach-O matches our yara for Mach-O with Entitlements
-                yara_matches = YARA_RULES.match(data=macho_bytes)
-                if yara_matches:
-                    if len(yara_matches) == 1:
-                        if yara_matches[0].rule == 'M_Hunting_MachO_Entitlements_1':
-                            xml_bytes = extract_xml(macho_bytes)
-                            try:
-                                #load the plist from the xml bytes
-                                plist = plistlib.loads(xml_bytes)
-                            except plistlib.InvalidFileException as plist_error:
-                                logging.warning("The entitlements were unable to be loaded: \
-                                    %s.", path)
-                                logging.warning("Full Error:")
-                                logging.warning(plist_error)
-                                plist = None
-                            if plist:
-                                return plist.keys()
+            return []
+        if confirm_macho(path, macho_bytes):
+            #Ensure Mach-O matches our yara for Mach-O with Entitlements
+            yara_matches = YARA_RULES.match(data=macho_bytes)
+            if yara_matches:
+                if len(yara_matches) == 1:
+                    if yara_matches[0].rule == 'M_Hunting_MachO_Entitlements_1':
+                        xml_bytes = extract_xml(macho_bytes)
+                        try:
+                            #load the plist from the xml bytes
+                            plist = plistlib.loads(xml_bytes)
+                        except plistlib.InvalidFileException as plist_error:
+                            logging.warning("The entitlements were unable to be loaded: \
+                                %s.", path)
+                            logging.warning("Full Error:")
+                            logging.warning(plist_error)
+                            plist = None
+                        if plist:
+                            return plist.keys()
     return []
