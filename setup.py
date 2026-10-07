@@ -19,20 +19,20 @@ from setuptools import find_packages, setup
 setup(
     name="permhash",
     packages=find_packages(include=["permhash", "permhash.scripts"]),
-    version="1.0.0",
+    version="1.0.1",
     description="Permhash calculator",
     author="jaredscottwilson",
     license="Google",
-    package_data={'permhash': ['detect.yar']},
+    package_data={"permhash": ["detect.yar"]},
     install_requires=[
-        "androguard>=3.3.5",
+        "androguard>=4.1.1",
         "python-magic>=0.4.27",
         "bs4>=0.0.1",
         "jstyleson>=0.0.2",
         "yara-python>=4.5.0",
     ],
     setup_requires=["pytest-runner"],
-    tests_require=["pytest==4.4.1"],
+    tests_require=["pytest>=4.4.1"],
     test_suite="tests",
     entry_points={
         "console_scripts": [

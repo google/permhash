@@ -14,17 +14,25 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-import logging
 from permhash.helpers import (
-    check_type,
     calc_permhash,
-    create_crx_permlist,
-    create_crx_manifest_permlist,
+    check_type,
     create_apk_manifest_permlist,
     create_apk_permlist,
+    create_crx_manifest_permlist,
+    create_crx_permlist,
     create_ipa_permlist,
-    create_macho_permlist,)
-from permhash.mimetypes import *
+    create_macho_permlist,
+)
+from permhash.mimetypes import (
+    APK_MANIFEST_MIMETYPES,
+    APK_MIMETYPES,
+    CRX_MANIFEST_MIMETYPES,
+    CRX_MIMETYPES,
+    IPA_MIMETYPES,
+    MACHO_MIMETYPES,
+)
+
 
 def permhash_crx(path):
     """
@@ -35,14 +43,7 @@ def permhash_crx(path):
     :param path: The targeted file
     :type path: string
     """
-    if check_type(path, CRX_MIMETYPES):
-        return calc_permhash(create_crx_permlist(path), path)
-    logging.warning(
-        "This file is not a type that is currently handled \
-            (CRX, APK, CRX Manifest, or APK Manifest): (%s)",
-        path,
-    )
-    return False
+    return calc_permhash(create_crx_permlist(path), path)
 
 
 def permhash_crx_manifest(path):
@@ -54,77 +55,44 @@ def permhash_crx_manifest(path):
     :param path: The targeted file
     :type path: string
     """
-    if check_type(path, CRX_MANIFEST_MIMETYPES):
-        return calc_permhash(create_crx_manifest_permlist(path), path)
-    logging.warning(
-        "This file is not a type that is currently handled \
-(CRX, APK, CRX Manifest, or APK Manifest): (%s)",
-        path,
-    )
-    return False
+    return calc_permhash(create_crx_manifest_permlist(path), path)
 
 
 def permhash_apk_manifest(path):
     """
-    Returns the permhash of a file at the designated path
+    Returns the permhash of a file at the designated path.
 
     :param path: The targeted file
     :type path: string
     """
-    if check_type(path, APK_MANIFEST_MIMETYPES):
-        return calc_permhash(create_apk_manifest_permlist(path), path)
-    logging.warning(
-        "This file is not a type that is currently handled \
-(CRX, APK, CRX Manifest, or APK Manifest): (%s)",
-        path,
-    )
-    return False
+    return calc_permhash(create_apk_manifest_permlist(path), path)
 
 
 def permhash_apk(path):
     """
-    Returns the permhash of a file at the designated path
+    Returns the permhash of a file at the designated path.
 
     :param path: The targeted file
     :type path: string
     """
-    if check_type(path, APK_MIMETYPES):
-        return calc_permhash(create_apk_permlist(path), path)
-    logging.warning(
-        "This file is not a type that is currently handled \
-(CRX, APK, CRX Manifest, or APK Manifest): (%s)",
-        path,
-    )
-    return False
+    return calc_permhash(create_apk_permlist(path), path)
+
 
 def permhash_ipa(path):
     """
-    Returns the permhash of a file at the designated path
+    Returns the permhash of a file at the designated path.
 
     :param path: The targeted file
     :type path: string
     """
-    if check_type(path, IPA_MIMETYPES):
-        return calc_permhash(create_ipa_permlist(path), path)
-    logging.warning(
-        "This file is not a type that is currently handled \
-(CRX, APK, CRX Manifest, APK Manifest, IPA, or Mach-O): (%s)",
-        path,
-    )
-    return False
+    return calc_permhash(create_ipa_permlist(path), path)
+
 
 def permhash_macho(path):
     """
-    Returns the permhash of a file at the designated path
+    Returns the permhash of a file at the designated path.
 
     :param path: The targeted file
     :type path: string
     """
-    if check_type(path, MACHO_MIMETYPES):
-        return calc_permhash(create_macho_permlist(path), path)
-    logging.warning(
-        "This file is not a type that is currently handled \
-(CRX, APK, CRX Manifest, APK Manifest, IPA, or Mach-O): (%s)",
-        path,
-    )
-    return False
+    return calc_permhash(create_macho_permlist(path), path)

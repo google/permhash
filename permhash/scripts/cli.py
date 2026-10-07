@@ -13,11 +13,14 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
-import logging
+
 import argparse
+import logging
+import os
+
 from permhash.functions import (
-    permhash_apk_manifest,
     permhash_apk,
+    permhash_apk_manifest,
     permhash_crx,
     permhash_crx_manifest,
     permhash_ipa,
@@ -29,7 +32,7 @@ from permhash.helpers import is_dir
 def main():
     """
     Intended to help handle argparsing
-    and CLI function calling
+    and CLI function calling.
     """
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -47,47 +50,33 @@ def main():
         type=str.lower,
         choices=["apk", "apk_manifest", "crx", "crx_manifest", "ipa", "macho"],
         action="store",
-        help="The filetype of the file you'd like to compute permhash for.",
+        help="The type of permhash you'd like to compute (crx, crx_manifest, apk, apk_manifest, ipa, macho)",
     )
     args = parser.parse_args()
+    handlers = {
+        "crx": permhash_crx,
+        "crx_manifest": permhash_crx_manifest,
+        "apk": permhash_apk,
+        "apk_manifest": permhash_apk_manifest,
+        "ipa": permhash_ipa,
+        "macho": permhash_macho,
+    }
+    handler = handlers.get(args.type)
+    if not handler:
+        logging.warning(
+            "This file is not a type that is currently handled "
+            "(CRX, APK, CRX Manifest, APK Manifest, IPA, or Mach-O): (%s)",
+            args.path,
+        )
+        return
+
     files = is_dir(args.path)
     if files:
         for file in files:
-            if args.type == "crx":
-                print(permhash_crx(args.path+file))
-            elif args.type == "crx_manifest":
-                print(permhash_crx_manifest(args.path+file))
-            elif args.type == "apk":
-                print(permhash_apk(args.path+file))
-            elif args.type == "apk_manifest":
-                print(permhash_apk_manifest(args.path+file))
-            elif args.type == "ipa":
-                print(permhash_ipa(args.path+file))
-            elif args.type == "macho":
-                print(permhash_macho(args.path+file))
-            else:
-                logging.warning(
-                    "This file is not a type that is currently handled (CRX, APK, CRX Manifest, APK Manifest, IPA, or Mach-O): (%s)",
-                    args.path,
-                )
-    if args.type == "crx":
-        print(permhash_crx(args.path))
-    elif args.type == "crx_manifest":
-        print(permhash_crx_manifest(args.path))
-    elif args.type == "apk":
-        print(permhash_apk(args.path))
-    elif args.type == "apk_manifest":
-        print(permhash_apk_manifest(args.path))
-    elif args.type == "ipa":
-        print(permhash_ipa(args.path))
-    elif args.type == "macho":
-        print(permhash_macho(args.path))
+            print(handler(os.path.join(args.path, file)))
     else:
-        logging.warning(
-            "This file is not a type that is currently handled (CRX, APK, CRX Manifest, APK Manifest, IPA, or Mach-O): (%s)",
-            args.path,
-        )
+        print(handler(args.path))
 
 
-if __name__ == " __main__":
+if __name__ == "__main__":
     main()
