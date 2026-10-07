@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - '**.py'
+      - '**.yar'
 
 jobs:
   test:
@@ -11,12 +12,16 @@ jobs:
     timeout-minutes: 10
 
     steps:
-    - uses: actions/checkout@v3
-    - uses: actions/setup-python@v3
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
       with:
         python-version: '3.11.4'
 
     - name: Install Requirements
       run: |
-        pip install .
         pip install -r requirements.txt
+        pip install .
+
+    - name: Run Unit Tests
+      run: |
+        pytest
