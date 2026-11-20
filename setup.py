@@ -14,26 +14,33 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+from pathlib import Path
 from setuptools import find_packages, setup
+
+LONG_DESCRIPTION = (Path(__file__).parent / "README.md").read_text(
+    encoding="utf-8"
+)
 
 setup(
     name="permhash",
     packages=find_packages(include=["permhash", "permhash.scripts"]),
     version="1.0.1",
     description="Permhash calculator",
+    long_description=LONG_DESCRIPTION,
+    long_description_content_type="text/markdown",
+    url="https://github.com/google/permhash",
     author="jaredscottwilson",
-    license="Google",
+    license="Apache-2.0",
+    python_requires=">=3.9",
     package_data={"permhash": ["detect.yar"]},
     install_requires=[
-        "androguard>=4.1.1",
-        "python-magic>=0.4.27",
-        "bs4>=0.0.1",
+        "androguard>=4.1.4",
+        "beautifulsoup4>=4.12.3",
         "jstyleson>=0.0.2",
+        "lxml>=5.3.0",
+        "python-magic>=0.4.27",
         "yara-python>=4.5.0",
     ],
-    setup_requires=["pytest-runner"],
-    tests_require=["pytest>=4.4.1"],
-    test_suite="tests",
     entry_points={
         "console_scripts": [
             # command = package.module:function
