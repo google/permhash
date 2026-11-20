@@ -38,6 +38,7 @@ NOTE: Due to github policy, we are unable to keep the following samples in the r
 """
 
 import hashlib
+import io
 import os
 import plistlib
 import struct
@@ -673,3 +674,100 @@ def test_cli_single_file_and_directory_modes(tmp_path, capsys):
     out_dir = capsys.readouterr().out.strip().splitlines()
     assert len(out_dir) == 2
     assert set(out_dir) == {expected_tabs, expected_cookies}
+
+
+def test_bounded_zip_entry_reads(tmp_path):
+    """
+    Verifies oversized and spoofed-header ZIP entries are rejected cleanly across CRX, APK, and IPA.
+    """
+    crx_path = tmp_path / "oversized_crx.zip"
+    padded_manifest = (
+        b'{"permissions": ["tabs"], "padding": "' + b"A" * 1024 + b'"}'
+    )
+    with zipfile.ZipFile(crx_path, "w") as zf:
+        zf.writestr("manifest.json", padded_manifest)
+
+    expected_tabs = hashlib.sha256(b"tabs").hexdigest()
+    assert functions.permhash_crx(str(crx_path)) == expected_tabs
+
+    with zipfile.ZipFile(crx_path, "r") as zf:
+        assert (
+            helpers._read_zip_entry_bounded(zf, "manifest.json", 4096)
+            == padded_manifest
+        )
+        try:
+            helpers._read_zip_entry_bounded(zf, "manifest.json", 256)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("Expected ValueError for oversized ZipInfo")
+
+        spoofed_info = zipfile.ZipInfo("manifest.json")
+        spoofed_info.file_size = 16
+        with mock.patch.object(zf, "getinfo", return_value=spoofed_info):
+            with mock.patch.object(
+                zf, "open", return_value=io.BytesIO(b"B" * 2048)
+            ):
+                try:
+                    helpers._read_zip_entry_bounded(zf, "manifest.json", 256)
+                except ValueError:
+                    pass
+                else:
+                    raise AssertionError(
+                        "Expected ValueError for spoofed stream exceeding max_bytes"
+                    )
+
+    with mock.patch.object(helpers, "MAX_MANIFEST_BYTES", 256):
+        assert functions.permhash_crx(str(crx_path)) is False
+
+    apk_path = tmp_path / "oversized_apk.zip"
+    with zipfile.ZipFile(apk_path, "w") as zf:
+        zf.writestr("AndroidManifest.xml", b"X" * 1024)
+    with mock.patch.object(helpers, "MAX_MANIFEST_BYTES", 256):
+        assert functions.permhash_apk(str(apk_path)) is False
+
+    macho_bytes = _make_macho_with_lc_code_signature(DANGEROUS_XML)
+    oversized_plist = plistlib.dumps(
+        {"CFBundleExecutable": "MyApp", "Pad": "P" * 1024}
+    )
+    ipa_path = tmp_path / "bounded.ipa"
+    with zipfile.ZipFile(ipa_path, "w") as zf:
+        zf.writestr("Payload/MyApp.app/Info.plist", oversized_plist)
+        zf.writestr("Payload/MyApp.app/MyApp", macho_bytes)
+
+    expected_ipa = hashlib.sha256(
+        b"com.apple.private.tcc.allowtask_for_pid-allow"
+    ).hexdigest()
+    with mock.patch.object(helpers, "MAX_MANIFEST_BYTES", 128):
+        assert functions.permhash_ipa(str(ipa_path)) == expected_ipa
+    with mock.patch.object(helpers, "MAX_MACHO_BYTES", 64):
+        assert functions.permhash_ipa(str(ipa_path)) is False
+
+
+def test_deeply_nested_manifest_recursion_guarded(tmp_path):
+    """
+    Verifies deeply nested CRX manifests return False instead of raising RecursionError.
+    """
+    depth = 20000
+    nested_array = b"[" * depth + b"]" * depth
+    nested_dict = b'{"a":' * depth + b"1" + b"}" * depth
+    commented_nested = b"// comment\n" + nested_dict
+    latin1_nested = b'{"x":"\xff","a":' + nested_dict + b"}"
+
+    assert helpers.process_manifest_bytes(nested_array) is False
+    assert helpers.process_manifest_bytes(nested_dict) is False
+    assert helpers.process_manifest_bytes(commented_nested) is False
+    assert helpers.process_manifest_bytes(latin1_nested) is False
+    assert (
+        helpers.strip_comments('{"a":' * depth + "1" + "}" * depth) is False
+    )
+
+    manifest_bytes = b'{\n  "permissions": ' + nested_array + b"\n}\n"
+    manifest_file = tmp_path / "deep_manifest.json"
+    manifest_file.write_bytes(manifest_bytes)
+    assert functions.permhash_crx_manifest(str(manifest_file)) is False
+
+    crx_zip = tmp_path / "deep_crx.zip"
+    with zipfile.ZipFile(crx_zip, "w") as zf:
+        zf.writestr("manifest.json", manifest_bytes)
+    assert functions.permhash_crx(str(crx_zip)) is False

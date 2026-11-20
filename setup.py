@@ -24,7 +24,7 @@ LONG_DESCRIPTION = (Path(__file__).parent / "README.md").read_text(
 setup(
     name="permhash",
     packages=find_packages(include=["permhash", "permhash.scripts"]),
-    version="1.0.1",
+    version="1.0.2",
     description="Permhash calculator",
     long_description=LONG_DESCRIPTION,
     long_description_content_type="text/markdown",

@@ -48,6 +48,10 @@ CSMAGIC_EMBEDDED_ENTITLEMENTS = 0xFADE7171
 CSSLOT_ENTITLEMENTS = 5
 LC_CODE_SIGNATURE = 0x1D
 
+MAX_MANIFEST_BYTES = 32 * 1024 * 1024
+MAX_MACHO_BYTES = 512 * 1024 * 1024
+_ZIP_READ_CHUNK_BYTES = 64 * 1024
+
 YARA_RULES_PATH = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "detect.yar"
 )
@@ -189,6 +193,38 @@ def calc_permhash(perm_list, path):
     return hashlib.sha256(permstr.encode("utf-8")).hexdigest()
 
 
+def _read_zip_entry_bounded(zf, entry, max_bytes):
+    """
+    Reads an archive member from zf while enforcing an uncompressed byte cap.
+
+    :param zf: Open ZipFile archive
+    :type zf: ZipFile
+    :param entry: Archive member path
+    :type entry: string
+    :param max_bytes: Maximum allowed uncompressed size in bytes
+    :type max_bytes: int
+    """
+    info = zf.getinfo(entry)
+    if info.file_size > max_bytes:
+        raise ValueError(
+            f"Archive member {entry!r} exceeds maximum size ({info.file_size} > {max_bytes})"
+        )
+    chunks = []
+    total = 0
+    with zf.open(info, "r") as member_fp:
+        while True:
+            chunk = member_fp.read(_ZIP_READ_CHUNK_BYTES)
+            if not chunk:
+                break
+            total += len(chunk)
+            if total > max_bytes:
+                raise ValueError(
+                    f"Archive member {entry!r} stream exceeds maximum size ({max_bytes})"
+                )
+            chunks.append(chunk)
+    return b"".join(chunks)
+
+
 def create_crx_permlist(path):
     """
     Creates and returns the list of permissions that will be used to create the permhash.
@@ -217,10 +253,21 @@ def create_crx_permlist(path):
                 logging.warning("This CRX file has no manifest: %s.", path)
                 return False
             try:
-                manifest_bytes = crx_archive.read(manifest_entry)
-            except (RuntimeError, zlib.error, BadZipfile, EOFError, OSError):
+                manifest_bytes = _read_zip_entry_bounded(
+                    crx_archive, manifest_entry, MAX_MANIFEST_BYTES
+                )
+            except (
+                KeyError,
+                ValueError,
+                NotImplementedError,
+                RuntimeError,
+                zlib.error,
+                BadZipfile,
+                EOFError,
+                OSError,
+            ):
                 logging.warning(
-                    "This CRX manifest is password protected and cannot be opened: %s.",
+                    "This CRX manifest cannot be read safely: %s.",
                     path,
                 )
                 return False
@@ -304,6 +351,7 @@ def _extract_apk_permissions_from_bytes(raw_bytes, path=""):
         KeyError,
         IndexError,
         TypeError,
+        RecursionError,
         struct.error,
         zlib.error,
         NotImplementedError,
@@ -367,7 +415,9 @@ def create_apk_permlist(path):
     try:
         with ZipFile(path, mode="r") as apk_archive:
             if "AndroidManifest.xml" in apk_archive.namelist():
-                apk_read = apk_archive.read("AndroidManifest.xml")
+                apk_read = _read_zip_entry_bounded(
+                    apk_archive, "AndroidManifest.xml", MAX_MANIFEST_BYTES
+                )
             else:
                 logging.warning(
                     "This file does not include an AndroidManifest XML: %s", path
@@ -375,6 +425,8 @@ def create_apk_permlist(path):
                 return False
     except (
         BadZipfile,
+        ValueError,
+        NotImplementedError,
         RuntimeError,
         zlib.error,
         EOFError,
@@ -402,6 +454,9 @@ def strip_comments(manifest_text):
     try:
         stripped_manifest = jstyleson.loads(manifest_text)
         return stripped_manifest if isinstance(stripped_manifest, dict) else False
+    except RecursionError as error:
+        logging.warning("Manifest nesting depth exceeded limit: %s", error)
+        return False
     except (ValueError, json.decoder.JSONDecodeError) as error:
         try:
             stripped_manifest = jstyleson.loads(
@@ -412,7 +467,12 @@ def strip_comments(manifest_text):
                 if isinstance(stripped_manifest, dict)
                 else False
             )
-        except (ValueError, UnicodeError, json.decoder.JSONDecodeError):
+        except (
+            ValueError,
+            UnicodeError,
+            RecursionError,
+            json.decoder.JSONDecodeError,
+        ):
             logging.warning("This manifest file is abnormal and unable to be read")
             logging.warning(str(error))
             return False
@@ -432,12 +492,20 @@ def process_manifest_bytes(manifest_byte_read):
     try:
         manifest_json = json.loads(manifest_byte_read)
         return manifest_json if isinstance(manifest_json, dict) else False
+    except RecursionError as error:
+        logging.warning("Manifest nesting depth exceeded limit: %s", error)
+        return False
     except UnicodeDecodeError as error:
         try:
             decoded_json = codecs.decode(manifest_byte_read, "iso-8859-1")
             try:
                 manifest_json = json.loads(decoded_json)
                 return manifest_json if isinstance(manifest_json, dict) else False
+            except RecursionError as rec_error:
+                logging.warning(
+                    "Manifest nesting depth exceeded limit: %s", rec_error
+                )
+                return False
             except json.decoder.JSONDecodeError:
                 return strip_comments(decoded_json)
         except UnicodeDecodeError:
@@ -767,7 +835,10 @@ def _find_ipa_executable_paths(ipa_unzip):
                 and parts[2] == "Info.plist"
             ):
                 try:
-                    info_plist = plistlib.loads(ipa_unzip.read(entry))
+                    info_plist_bytes = _read_zip_entry_bounded(
+                        ipa_unzip, entry, MAX_MANIFEST_BYTES
+                    )
+                    info_plist = plistlib.loads(info_plist_bytes)
                     if isinstance(info_plist, dict):
                         cf_exec = info_plist.get("CFBundleExecutable")
                         if (
@@ -782,6 +853,10 @@ def _find_ipa_executable_paths(ipa_unzip):
                     plistlib.InvalidFileException,
                     expat.ExpatError,
                     ValueError,
+                    TypeError,
+                    OverflowError,
+                    RecursionError,
+                    NotImplementedError,
                     KeyError,
                     BadZipfile,
                     RuntimeError,
@@ -844,9 +919,13 @@ def create_ipa_permlist(path):
                     return []
                 for macho_path in candidate_paths:
                     try:
-                        macho_bytes = ipa_unzip.read(macho_path)
+                        macho_bytes = _read_zip_entry_bounded(
+                            ipa_unzip, macho_path, MAX_MACHO_BYTES
+                        )
                     except (
                         KeyError,
+                        ValueError,
+                        NotImplementedError,
                         BadZipfile,
                         RuntimeError,
                         zlib.error,
