@@ -1,14 +1,16 @@
-<img src="https://github.com/google/permhash/blob/59d2c35765cf3b97ce310a3708e1cc8aa839a5a5/docs/images/permhash.jpg" align="center" width="40%" height="40%">
+<img src="https://raw.githubusercontent.com/google/permhash/main/docs/images/permhash.jpg" align="center" width="40%" height="40%">
 
 [![PyPi Version](https://img.shields.io/pypi/v/permhash)](https://pypi.org/project/permhash/)
 
-Permhash is an extensible framework to hash the declared permissions applied to Chromium-based browser extensions and APKs allowing for clustering, hunting, and pivoting similar to import hashing and rich header hashing.
+Permhash is an extensible framework to hash the declared permissions and entitlements in Chromium-based browser extensions, Android packages, iOS packages, and Mach-O binaries for clustering, hunting, and pivoting similar to import hashing and rich header hashing.
 
-Permhash is currently capable of running on four types of files, but is extensible beyond this:
+Permhash runs on six file types and can be extended to additional formats:
 1. An Android Package (APK) file.
-2. A Chromium-based Extension file (CRX).
+2. A Chromium-based Extension (CRX) file.
 3. An AXML Android Manifest file found at the root directory within APKs.
 4. A JSON Extension Manifest from a Chromium-based extension.
+5. An iOS App Store Package (IPA) file.
+6. A Mach-O binary containing embedded entitlements.
 
 
 # Download and Usage
@@ -40,6 +42,12 @@ ph = permhash.permhash_apk(path)
 
 # Calculate the permhash for an APK manifest
 ph = permhash.permhash_apk_manifest(path)
+
+# Calculate the permhash for an IPA
+ph = permhash.permhash_ipa(path)
+
+# Calculate the permhash for a Mach-O binary
+ph = permhash.permhash_macho(path)
 ```
 
 ### Example
@@ -80,13 +88,15 @@ def bulk_permhash_crx_manifest(path, output):
 ```
 ## Commandline Use
 
-Permhash can also be used as a commandline tool. Provide the full path to the file to calculate the permhash in the --path/-p switch and the type of file being analyzed in the --type/-t switch. The command will output the permhash or False if it is an invalid file.
+Permhash can also be used as a commandline tool. Provide the full path to the file to calculate the permhash in the `--path`/`-p` switch and the type of file being analyzed in the `--type`/`-t` switch. The command outputs the permhash or `False` if the file is invalid.
 
 ```
 permhash --type crx --path '[PATH TO CRX File]'
 permhash --type crx_manifest --path '[PATH TO CRX Manifest File]'
 permhash --type apk --path '[PATH TO APK File]'
-permhash --type apk_manifest --path '[PATH TO APK Manifest Files]'
+permhash --type apk_manifest --path '[PATH TO APK Manifest File]'
+permhash --type ipa --path '[PATH TO IPA File]'
+permhash --type macho --path '[PATH TO Mach-O File]'
 ```
 
 
